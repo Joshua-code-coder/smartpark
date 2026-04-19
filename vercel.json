@@ -1,4 +1,0 @@
-﻿{
-  "buildCommand": "cd smartpark-frontend && npm install && npm run build",
-  "outputDirectory": "smartpark-frontend/dist"
-}
