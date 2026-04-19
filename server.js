@@ -3,7 +3,10 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: ['https://smartpark-main.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+    credentials: true
+}));
 app.use(express.json());
 
 // Health check endpoint
@@ -19,22 +22,38 @@ app.get('/health', (req, res) => {
 // This uses SSL and the correct port for your Aiven Cloud instance.
 let pool;
 
-// Try to connect to Aiven database, fallback to mock mode if fails
-try {
-    pool = mysql.createPool({
-        host: process.env.DB_HOST,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_DATABASE,
-        port: parseInt(process.env.DB_PORT) || 20534,
-        ssl: {
-            rejectUnauthorized: false
-        },
-        connectTimeout: 30000 
-    });
-    console.log('Database pool created with Aiven Cloud');
-} catch (err) {
-    console.log('Database connection failed, running in mock mode:', err.message);
+// Try to connect to Aiven database
+if (process.env.DB_HOST && process.env.DB_USER && process.env.DB_PASSWORD) {
+    try {
+        pool = mysql.createPool({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_DATABASE || 'smartpark',
+            port: parseInt(process.env.DB_PORT) || 20534,
+            ssl: {
+                rejectUnauthorized: false
+            },
+            connectTimeout: 30000,
+            acquireTimeout: 30000,
+            timeout: 30000
+        });
+        console.log('Database pool created with Aiven Cloud');
+        
+        // Test the connection
+        pool.getConnection().then(conn => {
+            console.log('Database connected successfully');
+            conn.release();
+        }).catch(err => {
+            console.log('Database connection test failed:', err.message);
+            pool = null;
+        });
+    } catch (err) {
+        console.log('Database connection failed, running in mock mode:', err.message);
+        pool = null;
+    }
+} else {
+    console.log('Database environment variables not set, running in mock mode');
     pool = null;
 }
 
