@@ -290,6 +290,58 @@ app.get('/api/history/:userId', async (req, res) => {
 });
 
 // ============================
+// EXTEND BOOKING
+// ============================
+app.post('/api/extend-booking', async (req, res) => {
+    const { bookingId, additionalHours, userId } = req.body;
+
+    try {
+        // Handle Demo Extensions
+        if (bookingId === 1 || bookingId === 2) {
+            return res.json({
+                success: true,
+                originalCost: 10.00,
+                additionalCost: additionalHours * 5,
+                newTotalCost: 10.00 + (additionalHours * 5)
+            });
+        }
+
+        // 1. Get current booking and hourly rate
+        const [bookingRows] = await pool.execute(`
+            SELECT b.end_time, z.hourly_rate 
+            FROM Bookings b
+            JOIN ParkingSlots ps ON b.slot_id = ps.slot_id
+            JOIN Zones z ON ps.zone_id = z.zone_id
+            WHERE b.booking_id = ? AND b.user_id = ?
+        `, [bookingId, userId]);
+
+        if (bookingRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        const { end_time, hourly_rate } = bookingRows[0];
+        const additionalCost = additionalHours * hourly_rate;
+        const newEndTime = new Date(new Date(end_time).getTime() + additionalHours * 3600000);
+
+        // 2. Update booking end time
+        await pool.execute('UPDATE Bookings SET end_time = ? WHERE booking_id = ?', [newEndTime, bookingId]);
+
+        // 3. Add additional payment
+        await pool.execute('INSERT INTO Payments (booking_id, amount, payment_status) VALUES (?, ?, "paid")', [bookingId, additionalCost]);
+
+        res.json({
+            success: true,
+            additionalCost,
+            newEndTime
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ============================
 // START SERVER (RENDER SAFE)
 // ============================
 const PORT = process.env.PORT || 3000;
