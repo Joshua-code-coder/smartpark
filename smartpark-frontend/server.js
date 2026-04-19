@@ -4,16 +4,19 @@ const cors = require('cors');
 
 const app = express();
 
-// ✅ CORS (replace with your Vercel URL)
-app.use(cors({
-    origin: "https://smartpark-main.vercel.app"
-}));
-
 app.use(express.json());
 
-// ==========================================
-// ✅ DATABASE CONNECTION (AIVEN FIXED)
-// ==========================================
+// ============================
+// CORS CONFIG (IMPORTANT)
+// ============================
+app.use(cors({
+    origin: "https://your-frontend.vercel.app", // 👈 replace with your real Vercel URL
+    credentials: true
+}));
+
+// ============================
+// DATABASE CONNECTION (AIVEN)
+// ============================
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
@@ -25,30 +28,32 @@ const pool = mysql.createPool({
     }
 });
 
-// ✅ TEST DB CONNECTION
+// Test DB connection
 (async () => {
     try {
         await pool.query("SELECT 1");
         console.log("✅ DB CONNECTED");
     } catch (err) {
-        console.error("❌ DB FAILED", err);
+        console.error("❌ DB CONNECTION FAILED:", err.message);
     }
 })();
 
-// ==========================================
-// USER ROUTES
-// ==========================================
-
+// ============================
 // REGISTER
+// ============================
 app.post('/api/register', async (req, res) => {
     const { name, email, password, vehicles } = req.body;
 
     if (!name || !email || !password) {
-        return res.json({ success: false, message: 'Name, email, password required' });
+        return res.status(400).json({
+            success: false,
+            message: "Missing required fields"
+        });
     }
 
     try {
-        console.log('Registration attempt:', email);
+        console.log("Registration attempt:", email);
+        console.log("REQ BODY:", req.body);
 
         const [userRes] = await pool.execute(
             'INSERT INTO Users (name, email, password) VALUES (?, ?, ?)',
@@ -57,6 +62,7 @@ app.post('/api/register', async (req, res) => {
 
         const userId = userRes.insertId;
 
+        // Insert vehicles if any
         if (vehicles && Array.isArray(vehicles)) {
             for (let plate of vehicles) {
                 if (plate && plate.trim() !== '') {
@@ -68,20 +74,27 @@ app.post('/api/register', async (req, res) => {
             }
         }
 
-        res.json({ success: true, userId, name });
+        res.json({
+            success: true,
+            userId,
+            name
+        });
 
     } catch (err) {
-        console.error('Registration error:', err);
+        console.error("🔥 FULL ERROR:", err);
+        console.error("SQL MESSAGE:", err.message);
+        console.error("SQL CODE:", err.code);
 
-        if (err.code === 'ER_DUP_ENTRY') {
-            res.status(400).json({ success: false, message: 'Email already exists' });
-        } else {
-            res.status(500).json({ success: false, message: 'Registration failed' });
-        }
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
     }
 });
 
+// ============================
 // LOGIN
+// ============================
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -94,7 +107,7 @@ app.post('/api/login', async (req, res) => {
         if (rows.length > 0) {
             res.json({ success: true, user: rows[0] });
         } else {
-            res.json({ success: false, message: 'Invalid credentials' });
+            res.json({ success: false, message: "Invalid credentials" });
         }
 
     } catch (err) {
@@ -103,7 +116,9 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// GET VEHICLES
+// ============================
+// VEHICLES
+// ============================
 app.get('/api/vehicles/:userId', async (req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -114,11 +129,10 @@ app.get('/api/vehicles/:userId', async (req, res) => {
         res.json({ success: true, vehicles: rows });
 
     } catch (err) {
-        res.json({ success: false });
+        res.status(500).json({ success: false });
     }
 });
 
-// ADD VEHICLE
 app.post('/api/vehicles', async (req, res) => {
     const { userId, licensePlate } = req.body;
 
@@ -135,7 +149,6 @@ app.post('/api/vehicles', async (req, res) => {
     }
 });
 
-// DELETE VEHICLE
 app.delete('/api/vehicles/:vehicleId', async (req, res) => {
     try {
         await pool.execute(
@@ -150,11 +163,9 @@ app.delete('/api/vehicles/:vehicleId', async (req, res) => {
     }
 });
 
-// ==========================================
-// BOOKINGS
-// ==========================================
-
-// GET SLOTS
+// ============================
+// SLOTS
+// ============================
 app.get('/api/slots', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
@@ -167,11 +178,13 @@ app.get('/api/slots', async (req, res) => {
         res.json({ success: true, slots: rows });
 
     } catch (err) {
-        res.json({ success: false });
+        res.status(500).json({ success: false });
     }
 });
 
-// BOOK SLOT
+// ============================
+// BOOKING
+// ============================
 app.post('/api/book', async (req, res) => {
     const { userId, vehicleId, slotId, durationMins, amount } = req.body;
 
@@ -197,7 +210,9 @@ app.post('/api/book', async (req, res) => {
     }
 });
 
+// ============================
 // HISTORY
+// ============================
 app.get('/api/history/:userId', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
@@ -217,10 +232,9 @@ app.get('/api/history/:userId', async (req, res) => {
     }
 });
 
-// ==========================================
-// SERVER START
-// ==========================================
-
+// ============================
+// START SERVER (RENDER SAFE)
+// ============================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
