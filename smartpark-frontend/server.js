@@ -144,7 +144,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/vehicles/:userId', async (req, res) => {
     try {
         const [rows] = await pool.execute(
-            'SELECT vehicle_id as id, license_plate FROM Vehicles WHERE user_id = ?',
+            'SELECT vehicle_id as id, license_plate as plate FROM Vehicles WHERE user_id = ?',
             [req.params.userId]
         );
 
