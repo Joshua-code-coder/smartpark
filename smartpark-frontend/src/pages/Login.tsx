@@ -18,7 +18,7 @@ const Login = () => {
 
     try {
       console.log('Attempting login with email:', email);
-      const res = await fetch('http://localhost:3000/api/login', {
+      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -51,7 +51,7 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      alert(`Login failed: ${err instanceof Error ? err.message : 'Unknown error'}\nPlease check if the backend is running on http://localhost:3000`);
+      alert(`Login failed: ${err instanceof Error ? err.message : 'Unknown error'}\nPlease check if the backend is running on https://smartpark-backend-rmc1.onrender.com`);
     } finally {
       setIsLoading(false);
     }

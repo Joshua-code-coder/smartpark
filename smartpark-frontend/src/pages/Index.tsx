@@ -35,14 +35,14 @@ const Index = () => {
           navigator.geolocation.getCurrentPosition(
             (position) => {
               const { latitude, longitude } = position.coords;
-              fetch(`http://localhost:3000/api/slots?lat=${latitude}&lng=${longitude}`)
+              fetch(`https://smartpark-backend-rmc1.onrender.com/api/slots?lat=${latitude}&lng=${longitude}`)
                 .then(res => res.json())
                 .then(data => {
                   if (data.success) setSlots(data.slots);
                 });
             },
             () => {
-              fetch('http://localhost:3000/api/slots')
+              fetch('https://smartpark-backend-rmc1.onrender.com/api/slots')
                 .then(res => res.json())
                 .then(data => {
                   if (data.success) setSlots(data.slots);
@@ -50,17 +50,17 @@ const Index = () => {
             }
           );
         } else {
-          fetch('http://localhost:3000/api/slots')
+          fetch('https://smartpark-backend-rmc1.onrender.com/api/slots')
             .then(res => res.json())
             .then(data => {
               if (data.success) setSlots(data.slots);
             });
         }
-        const vehRes = await fetch(`http://localhost:3000/api/vehicles/${userId}`);
+        const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
         const vehData = await vehRes.json();
         if (vehData.success) setVehicles(vehData.vehicles);
         
-        const histRes = await fetch(`http://localhost:3000/api/history/${userId}`);
+        const histRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/history/${userId}`);
         const histData = await histRes.json();
         if (histData.success) setHistory(histData.history);
       } catch (err) {
@@ -137,7 +137,7 @@ const Index = () => {
     }
     
     try {
-      const res = await fetch('http://localhost:3000/api/extend-booking', {
+      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/extend-booking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ const Index = () => {
       durationHours: Number(formData.get('duration'))
     };
 
-    const res = await fetch('http://localhost:3000/api/book', {
+    const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bookingDetails)
@@ -208,7 +208,7 @@ const Index = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:3000/api/vehicles', {
+      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, licensePlate: newPlate.toUpperCase() })
@@ -216,7 +216,7 @@ const Index = () => {
 
       if (res.ok) {
         setNewPlate('');
-        const vehRes = await fetch(`http://localhost:3000/api/vehicles/${userId}`);
+        const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
         const vehData = await vehRes.json();
         if (vehData.success) setVehicles(vehData.vehicles);
         alert('Vehicle added successfully!');
@@ -234,7 +234,7 @@ const Index = () => {
     if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/api/vehicles/${vehicleId}`, {
+      const res = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${vehicleId}`, {
         method: 'DELETE'
       });
 
