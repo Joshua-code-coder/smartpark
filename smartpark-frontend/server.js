@@ -213,6 +213,17 @@ app.post('/api/book', async (req, res) => {
     const { userId, vehicleId, slotId, durationMins, amount } = req.body;
 
     try {
+        // 1. Check if slot is still available
+        const [slotRows] = await pool.execute('SELECT is_available FROM ParkingSlots WHERE slot_id = ?', [slotId]);
+        
+        if (slotRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Slot not found" });
+        }
+        
+        if (slotRows[0].is_available === 0 || slotRows[0].is_available === false) {
+            return res.status(400).json({ success: false, message: "This slot is already booked. Please choose another one." });
+        }
+
         const start = new Date();
         const end = new Date(start.getTime() + durationMins * 60000);
 
