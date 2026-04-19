@@ -273,13 +273,15 @@ app.post('/api/book', async (req, res) => {
 app.get('/api/history/:userId', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT v.license_plate, p.amount, b.start_time, b.end_time, l.name, ps.slot_number
+            SELECT v.license_plate, SUM(p.amount) as amount, b.start_time, b.end_time, l.name, ps.slot_number, b.booking_id as id
             FROM Bookings b
             JOIN Vehicles v ON b.vehicle_id = v.vehicle_id
             JOIN Payments p ON b.booking_id = p.booking_id
             JOIN ParkingSlots ps ON b.slot_id = ps.slot_id
             JOIN Locations l ON ps.location_id = l.location_id
             WHERE b.user_id = ?
+            GROUP BY b.booking_id
+            ORDER BY b.start_time DESC
         `, [req.params.userId]);
 
         res.json({ success: true, history: rows });
