@@ -2,11 +2,20 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
+
+const allowedOrigins = [
+  'https://smartpark-main-oek2d9rbz-janny18s-projects.vercel.app',
+  'http://localhost:5173' // keep this for local development
+];
+
 app.use(cors({
-  origin: [
-    'https://smartpark-main-a6el79pfv-janny18s-projects.vercel.app',
-    'http://localhost:5173'
-  ],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
