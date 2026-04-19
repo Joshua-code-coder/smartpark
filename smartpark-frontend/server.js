@@ -194,15 +194,16 @@ app.get('/api/slots', async (req, res) => {
             SELECT ps.slot_id as id, ps.slot_number, l.name as location, 
                    z.zone_name, z.hourly_rate, ps.is_available as available
             FROM ParkingSlots ps
-            JOIN Locations l ON ps.location_id = l.location_id
-            JOIN Zones z ON ps.zone_id = z.zone_id
-            WHERE ps.is_available = TRUE
+            LEFT JOIN Locations l ON ps.location_id = l.location_id
+            LEFT JOIN Zones z ON ps.zone_id = z.zone_id
+            WHERE ps.is_available = TRUE OR ps.is_available = 1
         `);
 
+        console.log(`Fetched ${rows.length} available slots`);
         res.json({ success: true, slots: rows });
-
     } catch (err) {
-        res.status(500).json({ success: false });
+        console.error("Error fetching slots:", err.message);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 

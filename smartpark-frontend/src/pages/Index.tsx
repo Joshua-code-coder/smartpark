@@ -456,7 +456,7 @@ const Index = () => {
                     <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2"><Car size={18}/> Select Vehicle</label>
                     <select name="vehicleId" className="w-full p-3.5 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 hover:bg-white" required>
                       <option value="">-- Choose a vehicle --</option>
-                      {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.make} {v.model} ({v.plate})</option>)}
+                      {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.make || ''} {v.model || ''} ({v.plate || v.license_plate || 'No Plate'})</option>)}
                     </select>
                   </div>
                   <div>
@@ -467,13 +467,16 @@ const Index = () => {
                       required
                       onChange={(e) => handleSlotChange(e.target.value)}
                     >
-                      <option value="">-- Choose a parking slot --</option>
-                      {slots.filter((s: any) => s.available).map((s: any) => (
-                        <option key={s.id} value={s.id}>
-                          Zone {s.zone_name} - Slot {s.slot_number} ({s.hourly_rate} AED/hr)
-                          {s.distance && ` - ${s.distance.toFixed(1)} km away`}
-                        </option>
-                      ))}
+                      {!slots || slots.filter((s: any) => s.available == 1 || s.available == true).length === 0 ? (
+                        <option disabled>No available slots found in database</option>
+                      ) : (
+                        slots.filter((s: any) => s.available == 1 || s.available == true).map((s: any) => (
+                          <option key={s.id} value={s.id}>
+                            Zone {s.zone_name || '?'} - Slot {s.slot_number} ({s.hourly_rate || '0'} AED/hr)
+                            {s.distance && ` - ${s.distance.toFixed(1)} km away`}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                 </div>
@@ -492,7 +495,7 @@ const Index = () => {
                 </div>
                 
                 {/* Pricing Display */}
-                {totalCost > 0 && (
+                {(totalCost > 0 || duration > 0) && (
                   <div className="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-100 flex justify-between items-center">
                     <div>
                       <p className="text-sm text-blue-600/80 font-bold uppercase tracking-wider mb-1">Estimated Total</p>
@@ -631,7 +634,7 @@ const Index = () => {
                           <div className="pl-2">
                             <div className="flex justify-between items-start mb-4">
                               <div className="inline-block bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                                <p className="text-xl font-bold text-slate-800 font-mono tracking-widest">{v.plate}</p>
+                                <p className="text-xl font-bold text-slate-800 font-mono tracking-widest">{v.plate || v.license_plate || 'No Plate'}</p>
                               </div>
                               <button
                                 onClick={() => handleDeleteVehicle(v.id)}
