@@ -167,12 +167,14 @@ const Index = () => {
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
+    const durationHours = Number(formData.get('duration'));
     
     const bookingDetails = {
       userId: userId,
       vehicleId: formData.get('vehicleId'),
       slotId: formData.get('slotId'),
-      durationHours: Number(formData.get('duration'))
+      durationMins: durationHours * 60,
+      amount: totalCost
     };
 
     const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/book', {

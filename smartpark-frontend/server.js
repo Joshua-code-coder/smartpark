@@ -191,9 +191,11 @@ app.delete('/api/vehicles/:vehicleId', async (req, res) => {
 app.get('/api/slots', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT ps.slot_id as id, ps.slot_number, l.name as location
+            SELECT ps.slot_id as id, ps.slot_number, l.name as location, 
+                   z.zone_name, z.hourly_rate, ps.is_available as available
             FROM ParkingSlots ps
             JOIN Locations l ON ps.location_id = l.location_id
+            JOIN Zones z ON ps.zone_id = z.zone_id
             WHERE ps.is_available = TRUE
         `);
 
