@@ -94,11 +94,18 @@ const Index = () => {
         if (histData.success && histData.history && histData.history.length > 0) {
           setHistory(histData.history);
         } else {
-          // Fallback history for demo
-          setHistory([
-            { id: 1, license_plate: 'A5242', amount: 10.00, start_time: new Date().toISOString(), end_time: new Date(Date.now() + 7200000).toISOString(), name: 'SmartPark', slot_number: 'A-01', durationMins: 120 },
-            { id: 2, license_plate: 'A5242', amount: 7.00, start_time: new Date(Date.now() - 86400000).toISOString(), end_time: new Date(Date.now() - 86400000 + 7200000).toISOString(), name: 'SmartPark', slot_number: 'B-01', durationMins: 120 }
-          ]);
+          // Fallback history for demo - check localStorage first
+          const savedDemo = localStorage.getItem('demoHistory');
+          if (savedDemo) {
+            setHistory(JSON.parse(savedDemo));
+          } else {
+            const initialDemo = [
+              { id: 1, license_plate: 'A5242', amount: 10.00, start_time: new Date().toISOString(), end_time: new Date(Date.now() + 7200000).toISOString(), name: 'SmartPark', slot_number: 'A-01', durationMins: 120 },
+              { id: 2, license_plate: 'A5242', amount: 7.00, start_time: new Date(Date.now() - 86400000).toISOString(), end_time: new Date(Date.now() - 86400000 + 7200000).toISOString(), name: 'SmartPark', slot_number: 'B-01', durationMins: 120 }
+            ];
+            localStorage.setItem('demoHistory', JSON.stringify(initialDemo));
+            setHistory(initialDemo);
+          }
         }
       } catch (err) {
         console.error("Backend not reachable. Check if server.js is running!");
@@ -187,6 +194,25 @@ const Index = () => {
       if (res.ok) {
         const result = await res.json();
         if (result.success) {
+          // UPDATE DEMO HISTORY IN LOCAL STORAGE IF NEEDED
+          if (bookingId === 1 || bookingId === 2) {
+            const savedDemo = localStorage.getItem('demoHistory');
+            if (savedDemo) {
+              const demoData = JSON.parse(savedDemo);
+              const updatedDemo = demoData.map((h: any) => {
+                if (h.id === bookingId) {
+                  return {
+                    ...h,
+                    amount: Number(h.amount) + (Number(additionalHours) * 5),
+                    end_time: new Date(new Date(h.end_time).getTime() + Number(additionalHours) * 3600000).toISOString()
+                  };
+                }
+                return h;
+              });
+              localStorage.setItem('demoHistory', JSON.stringify(updatedDemo));
+            }
+          }
+          
           alert(`Booking extended successfully!\n\nOriginal cost: ${result.originalCost?.toFixed(2)} AED\nAdditional cost: ${result.additionalCost?.toFixed(2)} AED\nNew total cost: ${result.newTotalCost?.toFixed(2)} AED`);
           window.location.reload();
         } else {
