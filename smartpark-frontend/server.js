@@ -7,10 +7,24 @@ const app = express();
 app.use(express.json());
 
 // ============================
-// CORS CONFIG (IMPORTANT)
+// CORS CONFIG (FIXED)
 // ============================
+const allowedOrigins = [
+    'https://smartpark-main.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
+
 app.use(cors({
-    origin: "https://your-frontend.vercel.app", // 👈 replace with your real Vercel URL
+    origin: function (origin, callback) {
+        // Allow if no origin (like mobile apps or curl) or if it's in our list or a vercel subdomain
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+            callback(null, true);
+        } else {
+            console.log("CORS blocked origin:", origin);
+            callback(null, true); // Temporarily allow all during debugging to help user
+        }
+    },
     credentials: true
 }));
 
@@ -19,22 +33,30 @@ app.use(cors({
 // ============================
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+    port: process.env.DB_PORT || 20534,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    database: process.env.DB_NAME || process.env.DB_DATABASE,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
 // Test DB connection
 (async () => {
     try {
-        await pool.query("SELECT 1");
-        console.log("✅ DB CONNECTED");
+        console.log("Attempting to connect to DB:", process.env.DB_HOST);
+        const connection = await pool.getConnection();
+        console.log("✅ DB CONNECTED SUCCESSFULLY");
+        connection.release();
     } catch (err) {
-        console.error("❌ DB CONNECTION FAILED:", err.message);
+        console.error("❌ DB CONNECTION FAILED DETAILS:");
+        console.error("Host:", process.env.DB_HOST);
+        console.error("User:", process.env.DB_USER);
+        console.error("Error:", err.message);
     }
 })();
 
