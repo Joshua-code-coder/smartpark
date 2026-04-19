@@ -297,5 +297,5 @@ app.get('/api/admin/dashboard', async (req, res) => {
 });
 
 app.listen(process.env.PORT || 3000, () => {
-    console.log('✅ SmartPark Backend running');
+    console.log('SmartPark Backend running on port', process.env.PORT || 3000);
 });
