@@ -38,14 +38,34 @@ const Index = () => {
               fetch(`https://smartpark-backend-rmc1.onrender.com/api/slots?lat=${latitude}&lng=${longitude}`)
                 .then(res => res.json())
                 .then(data => {
-                  if (data.success) setSlots(data.slots);
+                  if (data.success && data.slots && data.slots.length > 0) {
+                    setSlots(data.slots);
+                  } else {
+                    // Fallback to demo slots if backend is empty
+                    setSlots([
+                      { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
+                      { id: 102, slot_number: 'A-02', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
+                      { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
+                      { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
+                      { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
+                    ]);
+                  }
                 });
             },
             () => {
               fetch('https://smartpark-backend-rmc1.onrender.com/api/slots')
                 .then(res => res.json())
                 .then(data => {
-                  if (data.success) setSlots(data.slots);
+                  if (data.success && data.slots && data.slots.length > 0) {
+                    setSlots(data.slots);
+                  } else {
+                    setSlots([
+                      { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
+                      { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
+                      { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
+                      { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
+                    ]);
+                  }
                 });
             }
           );
@@ -53,7 +73,16 @@ const Index = () => {
           fetch('https://smartpark-backend-rmc1.onrender.com/api/slots')
             .then(res => res.json())
             .then(data => {
-              if (data.success) setSlots(data.slots);
+              if (data.success && data.slots && data.slots.length > 0) {
+                setSlots(data.slots);
+              } else {
+                setSlots([
+                  { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
+                  { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
+                  { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
+                  { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
+                ]);
+              }
             });
         }
         const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
