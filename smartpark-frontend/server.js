@@ -229,6 +229,12 @@ app.post('/api/book', async (req, res) => {
     const { userId, vehicleId, slotId, durationMins, amount } = req.body;
 
     try {
+        // ALLOW DEMO BOOKING: If it's a demo slot (ID > 100), just return success
+        if (Number(slotId) >= 100) {
+            console.log("Demo booking successful for slot:", slotId);
+            return res.json({ success: true, message: "Demo booking successful!" });
+        }
+
         // 1. Check if slot is still available
         const [slotRows] = await pool.execute('SELECT is_available FROM ParkingSlots WHERE slot_id = ?', [slotId]);
         
