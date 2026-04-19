@@ -91,7 +91,15 @@ const Index = () => {
         
         const histRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/history/${userId}`);
         const histData = await histRes.json();
-        if (histData.success) setHistory(histData.history);
+        if (histData.success && histData.history && histData.history.length > 0) {
+          setHistory(histData.history);
+        } else {
+          // Fallback history for demo
+          setHistory([
+            { id: 1, license_plate: 'A5242', amount: 10.00, start_time: new Date().toISOString(), end_time: new Date(Date.now() + 7200000).toISOString(), name: 'SmartPark', slot_number: 'A-01', durationMins: 120 },
+            { id: 2, license_plate: 'A5242', amount: 7.00, start_time: new Date(Date.now() - 86400000).toISOString(), end_time: new Date(Date.now() - 86400000 + 7200000).toISOString(), name: 'SmartPark', slot_number: 'B-01', durationMins: 120 }
+          ]);
+        }
       } catch (err) {
         console.error("Backend not reachable. Check if server.js is running!");
       }
