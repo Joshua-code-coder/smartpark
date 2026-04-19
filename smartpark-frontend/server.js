@@ -216,6 +216,10 @@ app.get('/api/slots', async (req, res) => {
         }
 
         res.json({ success: true, slots: rows });
+    } catch (err) {
+        console.error("Error fetching slots:", err.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 // ============================
