@@ -249,6 +249,27 @@ const Index = () => {
     if (res.ok) {
       const result = await res.json();
       if (result.success) {
+        // SAVE NEW BOOKING TO DEMO HISTORY
+        const savedDemo = localStorage.getItem('demoHistory');
+        const demoData = savedDemo ? JSON.parse(savedDemo) : [];
+        
+        // Find slot and vehicle info for the history entry
+        const slot = slots.find((s: any) => s.id === Number(bookingDetails.slotId));
+        const vehicle = vehicles.find((v: any) => v.id === Number(bookingDetails.vehicleId));
+        
+        const newEntry = {
+          id: Date.now(),
+          license_plate: vehicle ? (vehicle.plate || vehicle.license_plate) : 'Unknown',
+          amount: totalCost,
+          start_time: new Date().toISOString(),
+          end_time: new Date(Date.now() + bookingDetails.durationMins * 60000).toISOString(),
+          name: slot ? slot.location : 'SmartPark',
+          slot_number: slot ? slot.slot_number : 'Unknown',
+          durationMins: bookingDetails.durationMins
+        };
+        
+        localStorage.setItem('demoHistory', JSON.stringify([newEntry, ...demoData]));
+        
         alert("Parking Reserved Successfully!");
         setView('history');
         window.location.reload();
