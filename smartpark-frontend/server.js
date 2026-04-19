@@ -3,234 +3,226 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+
+// ✅ CORS (replace with your Vercel URL)
+app.use(cors({
+    origin: "https://smartpark-main.vercel.app"
+}));
+
 app.use(express.json());
 
-// 1. DATABASE CONNECTION
+// ==========================================
+// ✅ DATABASE CONNECTION (AIVEN FIXED)
+// ==========================================
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '1234', // <-- CHANGE THIS IF NEEDED
-    database: 'smartpark_v3'
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
+
+// ✅ TEST DB CONNECTION
+(async () => {
+    try {
+        await pool.query("SELECT 1");
+        console.log("✅ DB CONNECTED");
+    } catch (err) {
+        console.error("❌ DB FAILED", err);
+    }
+})();
 
 // ==========================================
 // USER ROUTES
 // ==========================================
 
-// 2. REGISTER
+// REGISTER
 app.post('/api/register', async (req, res) => {
     const { name, email, password, vehicles } = req.body;
-    
-    // Validate required fields
+
     if (!name || !email || !password) {
-        return res.json({ success: false, message: 'Name, email, and password are required' });
+        return res.json({ success: false, message: 'Name, email, password required' });
     }
-    
+
     try {
         console.log('Registration attempt:', email);
-        const [userRes] = await pool.execute('INSERT INTO Users (name, email, password) VALUES (?, ?, ?)', [name, email, password]);
+
+        const [userRes] = await pool.execute(
+            'INSERT INTO Users (name, email, password) VALUES (?, ?, ?)',
+            [name, email, password]
+        );
+
         const userId = userRes.insertId;
-        
-        // Add vehicles if provided
+
         if (vehicles && Array.isArray(vehicles)) {
             for (let plate of vehicles) {
                 if (plate && plate.trim() !== '') {
-                    await pool.execute('INSERT INTO Vehicles (user_id, license_plate) VALUES (?, ?)', [userId, plate.trim()]);
+                    await pool.execute(
+                        'INSERT INTO Vehicles (user_id, license_plate) VALUES (?, ?)',
+                        [userId, plate.trim()]
+                    );
                 }
             }
         }
-        console.log('Registration successful for:', email);
+
         res.json({ success: true, userId, name });
+
     } catch (err) {
         console.error('Registration error:', err);
+
         if (err.code === 'ER_DUP_ENTRY') {
-            res.status(400).json({ success: false, message: 'Email already registered' });
+            res.status(400).json({ success: false, message: 'Email already exists' });
         } else {
-            res.status(500).json({ success: false, message: 'Registration failed. Please try again.' });
+            res.status(500).json({ success: false, message: 'Registration failed' });
         }
     }
 });
 
-// 3. LOGIN
+// LOGIN
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+
     try {
-        console.log('Login attempt:', email);
-        const [rows] = await pool.execute('SELECT user_id, name FROM Users WHERE email = ? AND password = ?', [email, password]);
+        const [rows] = await pool.execute(
+            'SELECT user_id, name FROM Users WHERE email = ? AND password = ?',
+            [email, password]
+        );
+
         if (rows.length > 0) {
-            console.log('Login successful for:', email);
             res.json({ success: true, user: rows[0] });
         } else {
-            console.log('Login failed - invalid credentials for:', email);
-            res.json({ success: false, message: 'Invalid email or password' });
+            res.json({ success: false, message: 'Invalid credentials' });
         }
+
     } catch (err) {
-        console.error('Login error:', err);
-        res.status(500).json({ success: false, message: 'Server error. Check backend logs.' });
+        console.error(err);
+        res.status(500).json({ success: false });
     }
 });
 
-// 4. GET USER VEHICLES
+// GET VEHICLES
 app.get('/api/vehicles/:userId', async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT vehicle_id as id, license_plate as plate, license_plate FROM Vehicles WHERE user_id = ?', [req.params.userId]);
+        const [rows] = await pool.execute(
+            'SELECT vehicle_id as id, license_plate FROM Vehicles WHERE user_id = ?',
+            [req.params.userId]
+        );
+
         res.json({ success: true, vehicles: rows });
+
     } catch (err) {
-        res.json({ success: false, message: 'Server error' });
+        res.json({ success: false });
     }
 });
 
-// 4a. ADD VEHICLE
+// ADD VEHICLE
 app.post('/api/vehicles', async (req, res) => {
     const { userId, licensePlate } = req.body;
+
     try {
-        if (!userId || !licensePlate) {
-            return res.status(400).json({ success: false, message: 'User ID and license plate required' });
-        }
-        const [result] = await pool.execute('INSERT INTO Vehicles (user_id, license_plate) VALUES (?, ?)', [userId, licensePlate.trim()]);
+        const [result] = await pool.execute(
+            'INSERT INTO Vehicles (user_id, license_plate) VALUES (?, ?)',
+            [userId, licensePlate]
+        );
+
         res.json({ success: true, vehicleId: result.insertId });
+
     } catch (err) {
-        console.error('Error adding vehicle:', err);
-        res.status(500).json({ success: false, message: 'Failed to add vehicle' });
+        res.status(500).json({ success: false });
     }
 });
 
-// 4b. DELETE VEHICLE
+// DELETE VEHICLE
 app.delete('/api/vehicles/:vehicleId', async (req, res) => {
     try {
-        const { vehicleId } = req.params;
-        const [result] = await pool.execute('DELETE FROM Vehicles WHERE vehicle_id = ?', [vehicleId]);
-        if (result.affectedRows > 0) {
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ success: false, message: 'Vehicle not found' });
-        }
+        await pool.execute(
+            'DELETE FROM Vehicles WHERE vehicle_id = ?',
+            [req.params.vehicleId]
+        );
+
+        res.json({ success: true });
+
     } catch (err) {
-        console.error('Error deleting vehicle:', err);
-        res.status(500).json({ success: false, message: 'Failed to delete vehicle' });
+        res.status(500).json({ success: false });
     }
 });
 
 // ==========================================
-// BOOKING & HISTORY ROUTES
+// BOOKINGS
 // ==========================================
 
-// 5. GET AVAILABLE SLOTS (For the booking dropdowns)
+// GET SLOTS
 app.get('/api/slots', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT ps.slot_id as id, ps.slot_number, l.name as location, ps.is_available as available
-            FROM ParkingSlots ps 
-            JOIN Locations l ON ps.location_id = l.location_id 
+            SELECT ps.slot_id as id, ps.slot_number, l.name as location
+            FROM ParkingSlots ps
+            JOIN Locations l ON ps.location_id = l.location_id
             WHERE ps.is_available = TRUE
         `);
+
         res.json({ success: true, slots: rows });
+
     } catch (err) {
-        res.json({ success: false, message: 'Server error' });
+        res.json({ success: false });
     }
 });
 
-// 6. CREATE BOOKING
+// BOOK SLOT
 app.post('/api/book', async (req, res) => {
     const { userId, vehicleId, slotId, durationMins, amount } = req.body;
+
     try {
-        const startTime = new Date();
-        const endTime = new Date(startTime.getTime() + durationMins * 60000);
-        
+        const start = new Date();
+        const end = new Date(start.getTime() + durationMins * 60000);
+
         const [bookRes] = await pool.execute(
             'INSERT INTO Bookings (user_id, vehicle_id, slot_id, start_time, end_time, status) VALUES (?, ?, ?, ?, ?, "active")',
-            [userId, vehicleId, slotId, startTime, endTime]
+            [userId, vehicleId, slotId, start, end]
         );
-        
+
         await pool.execute(
             'INSERT INTO Payments (booking_id, amount, payment_status) VALUES (?, ?, "paid")',
             [bookRes.insertId, amount]
         );
-        
-        res.json({ success: true, bookingId: bookRes.insertId });
+
+        res.json({ success: true });
+
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Failed to create booking' });
+        res.status(500).json({ success: false });
     }
 });
 
-// 7. GET USER HISTORY 
+// HISTORY
 app.get('/api/history/:userId', async (req, res) => {
     try {
-        const [history] = await pool.execute(`
-            SELECT v.license_plate, p.amount, b.start_time, b.end_time, l.name as location, ps.slot_number
+        const [rows] = await pool.execute(`
+            SELECT v.license_plate, p.amount, b.start_time, b.end_time, l.name, ps.slot_number
             FROM Bookings b
             JOIN Vehicles v ON b.vehicle_id = v.vehicle_id
             JOIN Payments p ON b.booking_id = p.booking_id
             JOIN ParkingSlots ps ON b.slot_id = ps.slot_id
             JOIN Locations l ON ps.location_id = l.location_id
             WHERE b.user_id = ?
-            ORDER BY b.start_time DESC
         `, [req.params.userId]);
-        res.json({ success: true, history });
+
+        res.json({ success: true, history: rows });
+
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to load history' });
+        res.status(500).json({ success: false });
     }
 });
 
 // ==========================================
-// ADMIN DASHBOARD ROUTES
+// SERVER START
 // ==========================================
 
-// 8. GET ALL ADMIN DATA (Stats, Live Slots, User List)
-app.get('/api/admin/dashboard', async (req, res) => {
-    try {
-        // Get Total Revenue
-        const [revRows] = await pool.execute('SELECT SUM(amount) as total FROM Payments WHERE payment_status = "paid"');
-        
-        // Get Active Parkers
-        const [activeRows] = await pool.execute('SELECT COUNT(*) as active FROM Bookings WHERE status = "active"');
-        
-        // Get All Users with their vehicles
-        const [userRows] = await pool.execute(`
-            SELECT u.user_id, u.name, u.email, GROUP_CONCAT(v.license_plate) as plates
-            FROM Users u
-            LEFT JOIN Vehicles v ON u.user_id = v.user_id
-            GROUP BY u.user_id
-        `);
+const PORT = process.env.PORT || 3000;
 
-        // Get Live Slot Status
-        const [slotRows] = await pool.execute(`
-            SELECT ps.slot_number, l.name as location, ps.is_available 
-            FROM ParkingSlots ps 
-            JOIN Locations l ON ps.location_id = l.location_id
-        `);
-
-        res.json({
-            success: true,
-            stats: {
-                totalRevenue: revRows[0].total || 0,
-                activeParkers: activeRows[0].active || 0,
-                totalUsers: userRows.length
-            },
-            users: userRows,
-            slots: slotRows
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to load admin data' });
-    }
-});
-
-// DEBUG: Test endpoint to list all users
-app.get('/api/test/users', async (req, res) => {
-    try {
-        const [rows] = await pool.execute('SELECT user_id, name, email FROM Users');
-        res.json({ success: true, users: rows });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-// START SERVER
-app.listen(3000, () => {
-    console.log('✅ SmartPark Backend running on http://localhost:3000');
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
 });
