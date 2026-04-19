@@ -3,20 +3,11 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 
 const app = express();
-
-const allowedOrigins = [
-  'https://smartpark-main.vercel.app',
-  'http://localhost:5173' // optional for local dev
-];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'https://smartpark-main-a6el79pfv-janny18s-projects.vercel.app',
+    'http://localhost:5173'
+  ],
   credentials: true
 }));
 app.use(express.json());
