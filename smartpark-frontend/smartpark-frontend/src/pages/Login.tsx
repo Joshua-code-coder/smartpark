@@ -18,7 +18,7 @@ const Login = () => {
 
     try {
       console.log('Attempting login with email:', email);
-      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/login', {
+      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

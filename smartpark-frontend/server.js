@@ -7,24 +7,10 @@ const app = express();
 app.use(express.json());
 
 // ============================
-// CORS CONFIG (FIXED)
+// CORS CONFIG (IMPORTANT)
 // ============================
-const allowedOrigins = [
-    'https://smartpark-main.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-];
-
 app.use(cors({
-    origin: function (origin, callback) {
-        // Allow if no origin (like mobile apps or curl) or if it's in our list or a vercel subdomain
-        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-            callback(null, true);
-        } else {
-            console.log("CORS blocked origin:", origin);
-            callback(null, true); // Temporarily allow all during debugging to help user
-        }
-    },
+    origin: "https://smartpark-main.vercel.app", // 👈 replace with your real Vercel URL
     credentials: true
 }));
 
@@ -33,30 +19,22 @@ app.use(cors({
 // ============================
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 20534,
+    port: process.env.DB_PORT,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || process.env.DB_DATABASE,
+    database: process.env.DB_NAME,
     ssl: {
         rejectUnauthorized: false
-    },
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    }
 });
 
 // Test DB connection
 (async () => {
     try {
-        console.log("Attempting to connect to DB:", process.env.DB_HOST);
-        const connection = await pool.getConnection();
-        console.log("✅ DB CONNECTED SUCCESSFULLY");
-        connection.release();
+        await pool.query("SELECT 1");
+        console.log("✅ DB CONNECTED");
     } catch (err) {
-        console.error("❌ DB CONNECTION FAILED DETAILS:");
-        console.error("Host:", process.env.DB_HOST);
-        console.error("User:", process.env.DB_USER);
-        console.error("Error:", err.message);
+        console.error("❌ DB CONNECTION FAILED:", err.message);
     }
 })();
 
@@ -144,7 +122,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/vehicles/:userId', async (req, res) => {
     try {
         const [rows] = await pool.execute(
-            'SELECT vehicle_id as id, license_plate as plate FROM Vehicles WHERE user_id = ?',
+            'SELECT vehicle_id as id, license_plate FROM Vehicles WHERE user_id = ?',
             [req.params.userId]
         );
 
@@ -191,34 +169,16 @@ app.delete('/api/vehicles/:vehicleId', async (req, res) => {
 app.get('/api/slots', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT ps.slot_id as id, ps.slot_number, l.name as location, 
-                   z.zone_name, z.hourly_rate, ps.is_available as available
+            SELECT ps.slot_id as id, ps.slot_number, l.name as location
             FROM ParkingSlots ps
-            LEFT JOIN Locations l ON ps.location_id = l.location_id
-            LEFT JOIN Zones z ON ps.zone_id = z.zone_id
-            WHERE ps.is_available = TRUE OR ps.is_available = 1
+            JOIN Locations l ON ps.location_id = l.location_id
+            WHERE ps.is_available = TRUE
         `);
 
-        console.log(`Fetched ${rows.length} available slots from DB`);
-        
-        // FALLBACK: If DB is empty, provide demo slots so the user can test the UI
-        if (rows.length === 0) {
-            console.log("⚠️ DB is empty, providing demo slots fallback");
-            const demoSlots = [
-                { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
-                { id: 102, slot_number: 'A-02', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
-                { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
-                { id: 202, slot_number: 'B-02', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
-                { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
-                { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
-            ];
-            return res.json({ success: true, slots: demoSlots });
-        }
-
         res.json({ success: true, slots: rows });
+
     } catch (err) {
-        console.error("Error fetching slots:", err.message);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false });
     }
 });
 
@@ -229,23 +189,6 @@ app.post('/api/book', async (req, res) => {
     const { userId, vehicleId, slotId, durationMins, amount } = req.body;
 
     try {
-        // ALLOW DEMO BOOKING: If it's a demo slot (ID > 100), just return success
-        if (Number(slotId) >= 100) {
-            console.log("Demo booking successful for slot:", slotId);
-            return res.json({ success: true, message: "Demo booking successful!" });
-        }
-
-        // 1. Check if slot is still available
-        const [slotRows] = await pool.execute('SELECT is_available FROM ParkingSlots WHERE slot_id = ?', [slotId]);
-        
-        if (slotRows.length === 0) {
-            return res.status(404).json({ success: false, message: "Slot not found" });
-        }
-        
-        if (slotRows[0].is_available === 0 || slotRows[0].is_available === false) {
-            return res.status(400).json({ success: false, message: "This slot is already booked. Please choose another one." });
-        }
-
         const start = new Date();
         const end = new Date(start.getTime() + durationMins * 60000);
 
@@ -273,15 +216,13 @@ app.post('/api/book', async (req, res) => {
 app.get('/api/history/:userId', async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT v.license_plate, SUM(p.amount) as amount, b.start_time, b.end_time, l.name, ps.slot_number, b.booking_id as id
+            SELECT v.license_plate, p.amount, b.start_time, b.end_time, l.name, ps.slot_number
             FROM Bookings b
             JOIN Vehicles v ON b.vehicle_id = v.vehicle_id
             JOIN Payments p ON b.booking_id = p.booking_id
             JOIN ParkingSlots ps ON b.slot_id = ps.slot_id
             JOIN Locations l ON ps.location_id = l.location_id
             WHERE b.user_id = ?
-            GROUP BY b.booking_id
-            ORDER BY b.start_time DESC
         `, [req.params.userId]);
 
         res.json({ success: true, history: rows });
@@ -299,7 +240,7 @@ app.post('/api/extend-booking', async (req, res) => {
 
     try {
         // Handle Demo Extensions (if ID is from our frontend demo or DB query would fail)
-        if (Number(bookingId) >= 1 || bookingId === 1 || bookingId === 2) {
+        if (Number(bookingId) >= 1) {
             const costPerHr = 5; // Default for demo
             return res.json({
                 success: true,

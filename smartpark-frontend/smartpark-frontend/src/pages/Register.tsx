@@ -39,7 +39,7 @@ const Register = () => {
       // Filter out empty vehicles
       const validVehicles = vehicles.filter(v => v && v.trim() !== '');
       
-      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/register', {
+      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

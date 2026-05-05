@@ -24,17 +24,17 @@ const Index = () => {
     const fetchData = async () => {
       try {
         // Get Available Slots
-        const slotRes = await fetch('http://localhost:3000/api/slots');
+        const slotRes = await fetch('https://smartpark-backend-rmc1.onrender.com/slots');
         const slotData = await slotRes.json();
         if (slotData.success) setSlots(slotData.slots);
 
         // Get User History
-        const histRes = await fetch(`http://localhost:3000/api/history/${userId}`);
+        const histRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/history/${userId}`);
         const histData = await histRes.json();
         if (histData.success) setHistory(histData.history);
 
         // Get User Vehicles
-        const vehRes = await fetch(`http://localhost:3000/api/vehicles/${userId}`);
+        const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/vehicles/${userId}`);
         const vehData = await vehRes.json();
         if (vehData.success) setVehicles(vehData.vehicles);
       } catch (err) {
@@ -81,7 +81,7 @@ const Index = () => {
       amount: (Number(formData.get('duration')) / 60) * 10
     };
 
-    const res = await fetch('http://localhost:3000/api/book', {
+    const res = await fetch('https://smartpark-backend-rmc1.onrender.com/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bookingDetails)
@@ -101,7 +101,7 @@ const Index = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:3000/api/vehicles', {
+      const res = await fetch('https://smartpark-backend-rmc1.onrender.com/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, licensePlate: newPlate.toUpperCase() })
@@ -110,7 +110,7 @@ const Index = () => {
       if (res.ok) {
         setNewPlate('');
         // Refresh vehicles list
-        const vehRes = await fetch(`http://localhost:3000/api/vehicles/${userId}`);
+        const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/vehicles/${userId}`);
         const vehData = await vehRes.json();
         if (vehData.success) setVehicles(vehData.vehicles);
         alert('Vehicle added successfully!');
@@ -128,7 +128,7 @@ const Index = () => {
     if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/api/vehicles/${vehicleId}`, {
+      const res = await fetch(`https://smartpark-backend-rmc1.onrender.com/vehicles/${vehicleId}`, {
         method: 'DELETE'
       });
 

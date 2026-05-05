@@ -39,8 +39,9 @@ const Login = () => {
 
       if (data.success) {
         console.log('Login successful, storing user data');
-        // Use auth context to update auth state
-        login(String(data.user.user_id), data.user.name, email);
+        // Use auth context to update auth state, safely falling back to 'id' if 'user_id' is undefined
+        const actualUserId = data.user.user_id || data.user.id || 'unknown';
+        login(String(actualUserId), data.user.name, email);
 
         console.log('User data stored, navigating to dashboard');
         // Redirect to dashboard
@@ -51,7 +52,7 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      alert(`Login failed: ${err instanceof Error ? err.message : 'Unknown error'}\nPlease check if the backend is running on https://smartpark-backend-rmc1.onrender.com`);
+      alert(`Login failed: ${err instanceof Error ? err.message : 'Unknown error'}\nPlease check if the backend is running on http://localhost:3000`);
     } finally {
       setIsLoading(false);
     }

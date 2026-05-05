@@ -38,18 +38,7 @@ const Index = () => {
               fetch(`https://smartpark-backend-rmc1.onrender.com/api/slots?lat=${latitude}&lng=${longitude}`)
                 .then(res => res.json())
                 .then(data => {
-                  if (data.success && data.slots && data.slots.length > 0) {
-                    setSlots(data.slots);
-                  } else {
-                    // Fallback to demo slots if backend is empty
-                    setSlots([
-                      { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
-                      { id: 102, slot_number: 'A-02', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
-                      { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
-                      { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
-                      { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
-                    ]);
-                  }
+                  if (data.success) setSlots(data.slots);
                 });
             },
             () => {
@@ -85,27 +74,24 @@ const Index = () => {
               }
             });
         }
+        
         const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
         const vehData = await vehRes.json();
-        if (vehData.success) setVehicles(vehData.vehicles);
+        if (vehData.success && vehData.vehicles && vehData.vehicles.length > 0) {
+          setVehicles(vehData.vehicles);
+        } else {
+          const savedVehicles = localStorage.getItem(`demoVehicles_${userId}`);
+          if (savedVehicles) setVehicles(JSON.parse(savedVehicles));
+        }
         
         const histRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/history/${userId}`);
         const histData = await histRes.json();
         if (histData.success && histData.history && histData.history.length > 0) {
           setHistory(histData.history);
         } else {
-          // Fallback history for demo - check localStorage first
-          const savedDemo = localStorage.getItem('demoHistory');
-          if (savedDemo) {
-            setHistory(JSON.parse(savedDemo));
-          } else {
-            const initialDemo = [
-              { id: 1, license_plate: 'A5242', amount: 10.00, start_time: new Date().toISOString(), end_time: new Date(Date.now() + 7200000).toISOString(), name: 'SmartPark', slot_number: 'A-01', durationMins: 120 },
-              { id: 2, license_plate: 'A5242', amount: 7.00, start_time: new Date(Date.now() - 86400000).toISOString(), end_time: new Date(Date.now() - 86400000 + 7200000).toISOString(), name: 'SmartPark', slot_number: 'B-01', durationMins: 120 }
-            ];
-            localStorage.setItem('demoHistory', JSON.stringify(initialDemo));
-            setHistory(initialDemo);
-          }
+          const savedDemo = localStorage.getItem(`demoHistory_${userId}`);
+          if (savedDemo) setHistory(JSON.parse(savedDemo));
+          else setHistory([]);
         }
       } catch (err) {
         console.error("Backend not reachable. Check if server.js is running!");
@@ -194,12 +180,12 @@ const Index = () => {
       if (res.ok) {
         const result = await res.json();
         if (result.success) {
-          // UPDATE DEMO HISTORY IN LOCAL STORAGE IF NEEDED
-          const savedDemo = localStorage.getItem('demoHistory');
+          // UPDATE DEMO HISTORY
+          const savedDemo = localStorage.getItem(`demoHistory_${userId}`);
           if (savedDemo) {
             const demoData = JSON.parse(savedDemo);
             const updatedDemo = demoData.map((h: any) => {
-              if (h.id == bookingId) { // Use == for loose comparison
+              if (h.id == bookingId) {
                 return {
                   ...h,
                   amount: Number(h.amount) + (Number(additionalHours) * 5),
@@ -208,10 +194,10 @@ const Index = () => {
               }
               return h;
             });
-            localStorage.setItem('demoHistory', JSON.stringify(updatedDemo));
+            localStorage.setItem(`demoHistory_${userId}`, JSON.stringify(updatedDemo));
           }
-          
-          alert(`Booking extended successfully!\n\nOriginal cost: ${result.originalCost?.toFixed(2)} AED\nAdditional cost: ${result.additionalCost?.toFixed(2)} AED\nNew total cost: ${result.newTotalCost?.toFixed(2)} AED`);
+
+          alert(`Booking extended successfully!\n\nNew total cost: ${result.newTotalCost || (Number(additionalHours)*5)} AED`);
           window.location.reload();
         } else {
           alert(result.message || "Failed to extend booking");
@@ -228,14 +214,12 @@ const Index = () => {
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
-    const durationHours = Number(formData.get('duration'));
     
     const bookingDetails = {
       userId: userId,
       vehicleId: formData.get('vehicleId'),
       slotId: formData.get('slotId'),
-      durationMins: durationHours * 60,
-      amount: totalCost
+      durationHours: Number(formData.get('duration'))
     };
 
     const res = await fetch('https://smartpark-backend-rmc1.onrender.com/api/book', {
@@ -247,11 +231,10 @@ const Index = () => {
     if (res.ok) {
       const result = await res.json();
       if (result.success) {
-        // SAVE NEW BOOKING TO DEMO HISTORY
-        const savedDemo = localStorage.getItem('demoHistory');
+        // SAVE NEW BOOKING TO ISOLATED DEMO HISTORY
+        const savedDemo = localStorage.getItem(`demoHistory_${userId}`);
         const demoData = savedDemo ? JSON.parse(savedDemo) : [];
         
-        // Find slot and vehicle info for the history entry
         const slot = slots.find((s: any) => s.id === Number(bookingDetails.slotId));
         const vehicle = vehicles.find((v: any) => v.id === Number(bookingDetails.vehicleId));
         
@@ -260,14 +243,14 @@ const Index = () => {
           license_plate: vehicle ? (vehicle.plate || vehicle.license_plate) : 'Unknown',
           amount: totalCost,
           start_time: new Date().toISOString(),
-          end_time: new Date(Date.now() + bookingDetails.durationMins * 60000).toISOString(),
+          end_time: new Date(Date.now() + bookingDetails.durationHours * 3600000).toISOString(),
           name: slot ? slot.location : 'SmartPark',
           slot_number: slot ? slot.slot_number : 'Unknown',
-          durationMins: bookingDetails.durationMins
+          durationMins: bookingDetails.durationHours * 60
         };
         
-        localStorage.setItem('demoHistory', JSON.stringify([newEntry, ...demoData]));
-        
+        localStorage.setItem(`demoHistory_${userId}`, JSON.stringify([newEntry, ...demoData]));
+
         alert("Parking Reserved Successfully!");
         setView('history');
         window.location.reload();
@@ -299,10 +282,20 @@ const Index = () => {
       });
 
       if (res.ok) {
+        // Save to demo vehicles
+        const savedVehicles = localStorage.getItem(`demoVehicles_${userId}`);
+        const currentVehicles = savedVehicles ? JSON.parse(savedVehicles) : [];
+        const newVeh = { id: Date.now(), plate: newPlate.toUpperCase(), license_plate: newPlate.toUpperCase(), make: 'Demo', model: 'Car' };
+        localStorage.setItem(`demoVehicles_${userId}`, JSON.stringify([...currentVehicles, newVeh]));
+
         setNewPlate('');
         const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
         const vehData = await vehRes.json();
-        if (vehData.success) setVehicles(vehData.vehicles);
+        if (vehData.success && vehData.vehicles && vehData.vehicles.length > 0) {
+            setVehicles(vehData.vehicles);
+        } else {
+            setVehicles([...currentVehicles, newVeh]);
+        }
         alert('Vehicle added successfully!');
       } else {
         alert('Failed to add vehicle');
@@ -323,6 +316,13 @@ const Index = () => {
       });
 
       if (res.ok) {
+        // Remove from demo vehicles
+        const savedVehicles = localStorage.getItem(`demoVehicles_${userId}`);
+        if (savedVehicles) {
+          const filtered = JSON.parse(savedVehicles).filter((v: any) => v.id !== vehicleId);
+          localStorage.setItem(`demoVehicles_${userId}`, JSON.stringify(filtered));
+        }
+
         setVehicles(vehicles.filter((v: any) => v.id !== vehicleId));
         alert('Vehicle deleted successfully!');
       } else {
@@ -538,7 +538,7 @@ const Index = () => {
                     <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2"><Car size={18}/> Select Vehicle</label>
                     <select name="vehicleId" className="w-full p-3.5 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 hover:bg-white" required>
                       <option value="">-- Choose a vehicle --</option>
-                      {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.make || ''} {v.model || ''} ({v.plate || v.license_plate || 'No Plate'})</option>)}
+                      {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.make} {v.model} ({v.plate})</option>)}
                     </select>
                   </div>
                   <div>
@@ -716,7 +716,7 @@ const Index = () => {
                           <div className="pl-2">
                             <div className="flex justify-between items-start mb-4">
                               <div className="inline-block bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                                <p className="text-xl font-bold text-slate-800 font-mono tracking-widest">{v.plate || v.license_plate || 'No Plate'}</p>
+                                <p className="text-xl font-bold text-slate-800 font-mono tracking-widest">{v.plate}</p>
                               </div>
                               <button
                                 onClick={() => handleDeleteVehicle(v.id)}
