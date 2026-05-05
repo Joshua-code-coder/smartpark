@@ -22,7 +22,7 @@ const pool = mysql.createPool({
     port: process.env.DB_PORT,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    database: process.env.DB_NAME || process.env.DB_DATABASE || 'defaultdb',
     ssl: {
         rejectUnauthorized: false
     }
@@ -32,7 +32,7 @@ const pool = mysql.createPool({
 (async () => {
     try {
         await pool.query("SELECT 1");
-        console.log("✅ DB CONNECTED");
+        console.log(`✅ DB CONNECTED SUCCESSFULLY to database: ${process.env.DB_NAME || process.env.DB_DATABASE || 'defaultdb'}`);
     } catch (err) {
         console.error("❌ DB CONNECTION FAILED:", err.message);
     }
