@@ -154,7 +154,7 @@ const Index = () => {
     }
   };
 
-  const availableSlots = slots.filter((s: any) => Number(s.available ?? s.is_available) === 1);
+  const availableSlots = slots;
 
   return (
     <div className="flex h-screen bg-gray-50">
