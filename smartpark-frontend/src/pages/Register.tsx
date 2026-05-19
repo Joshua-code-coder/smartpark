@@ -33,6 +33,13 @@ const Register = () => {
       return;
     }
 
+    // Clear demo data on new registration so it feels like a fresh start
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('demoHistory_') || key.startsWith('demoVehicles_')) {
+        localStorage.removeItem(key);
+      }
+    });
+
     setIsLoading(true);
 
     try {

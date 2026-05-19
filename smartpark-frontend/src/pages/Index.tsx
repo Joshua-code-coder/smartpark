@@ -19,7 +19,7 @@ const Index = () => {
 
   // Calculate statistics
   const activeBookings = history.filter((h: any) => new Date(h.end_time).getTime() > new Date().getTime()).length;
-  const availableSlots = slots.filter((s: any) => s.available).length;
+  const availableSlots = slots.filter((s: any) => s.available !== 0 && s.available !== false && s.is_available !== 0 && s.is_available !== false).length;
   const totalSpent = history.reduce((sum: number, h: any) => sum + Number(h.amount || 0), 0);
 
   const handleLogout = () => {
@@ -29,8 +29,12 @@ const Index = () => {
 
   // 1. Fetch Data from Backend
   useEffect(() => {
+    if (!userId) return; // Wait until userId is loaded
+
     const fetchData = async () => {
       try {
+        const userEmail = localStorage.getItem('userEmail') || userId;
+        
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -80,16 +84,18 @@ const Index = () => {
         if (vehData.success && vehData.vehicles && vehData.vehicles.length > 0) {
           setVehicles(vehData.vehicles);
         } else {
-          const savedVehicles = localStorage.getItem(`demoVehicles_${userId}`);
+          const savedVehicles = localStorage.getItem(`demoVehicles_${userEmail}`);
           if (savedVehicles) setVehicles(JSON.parse(savedVehicles));
+          else setVehicles([]);
         }
         
         const histRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/history/${userId}`);
         const histData = await histRes.json();
+        // Strict filtering to only show current user's history if backend returns shared data accidentally
         if (histData.success && histData.history && histData.history.length > 0) {
           setHistory(histData.history);
         } else {
-          const savedDemo = localStorage.getItem(`demoHistory_${userId}`);
+          const savedDemo = localStorage.getItem(`demoHistory_${userEmail}`);
           if (savedDemo) setHistory(JSON.parse(savedDemo));
           else setHistory([]);
         }
@@ -181,7 +187,8 @@ const Index = () => {
         const result = await res.json();
         if (result.success) {
           // UPDATE DEMO HISTORY
-          const savedDemo = localStorage.getItem(`demoHistory_${userId}`);
+          const userEmail = localStorage.getItem('userEmail') || userId;
+          const savedDemo = localStorage.getItem(`demoHistory_${userEmail}`);
           if (savedDemo) {
             const demoData = JSON.parse(savedDemo);
             const updatedDemo = demoData.map((h: any) => {
@@ -194,7 +201,7 @@ const Index = () => {
               }
               return h;
             });
-            localStorage.setItem(`demoHistory_${userId}`, JSON.stringify(updatedDemo));
+            localStorage.setItem(`demoHistory_${userEmail}`, JSON.stringify(updatedDemo));
           }
 
           alert(`Booking extended successfully!\n\nNew total cost: ${result.newTotalCost || (Number(additionalHours)*5)} AED`);
@@ -232,7 +239,8 @@ const Index = () => {
       const result = await res.json();
       if (result.success) {
         // SAVE NEW BOOKING TO ISOLATED DEMO HISTORY
-        const savedDemo = localStorage.getItem(`demoHistory_${userId}`);
+        const userEmail = localStorage.getItem('userEmail') || userId;
+        const savedDemo = localStorage.getItem(`demoHistory_${userEmail}`);
         const demoData = savedDemo ? JSON.parse(savedDemo) : [];
         
         const slot = slots.find((s: any) => s.id === Number(bookingDetails.slotId));
@@ -249,7 +257,7 @@ const Index = () => {
           durationMins: bookingDetails.durationHours * 60
         };
         
-        localStorage.setItem(`demoHistory_${userId}`, JSON.stringify([newEntry, ...demoData]));
+        localStorage.setItem(`demoHistory_${userEmail}`, JSON.stringify([newEntry, ...demoData]));
 
         alert("Parking Reserved Successfully!");
         setView('history');
@@ -283,10 +291,11 @@ const Index = () => {
 
       if (res.ok) {
         // Save to demo vehicles
-        const savedVehicles = localStorage.getItem(`demoVehicles_${userId}`);
+        const userEmail = localStorage.getItem('userEmail') || userId;
+        const savedVehicles = localStorage.getItem(`demoVehicles_${userEmail}`);
         const currentVehicles = savedVehicles ? JSON.parse(savedVehicles) : [];
         const newVeh = { id: Date.now(), plate: newPlate.toUpperCase(), license_plate: newPlate.toUpperCase(), make: 'Demo', model: 'Car' };
-        localStorage.setItem(`demoVehicles_${userId}`, JSON.stringify([...currentVehicles, newVeh]));
+        localStorage.setItem(`demoVehicles_${userEmail}`, JSON.stringify([...currentVehicles, newVeh]));
 
         setNewPlate('');
         const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
@@ -317,10 +326,11 @@ const Index = () => {
 
       if (res.ok) {
         // Remove from demo vehicles
-        const savedVehicles = localStorage.getItem(`demoVehicles_${userId}`);
+        const userEmail = localStorage.getItem('userEmail') || userId;
+        const savedVehicles = localStorage.getItem(`demoVehicles_${userEmail}`);
         if (savedVehicles) {
           const filtered = JSON.parse(savedVehicles).filter((v: any) => v.id !== vehicleId);
-          localStorage.setItem(`demoVehicles_${userId}`, JSON.stringify(filtered));
+          localStorage.setItem(`demoVehicles_${userEmail}`, JSON.stringify(filtered));
         }
 
         setVehicles(vehicles.filter((v: any) => v.id !== vehicleId));
@@ -549,10 +559,10 @@ const Index = () => {
                       required
                       onChange={(e) => handleSlotChange(e.target.value)}
                     >
-                      {!slots || slots.filter((s: any) => s.available == 1 || s.available == true).length === 0 ? (
+                      {!slots || slots.filter((s: any) => s.available !== 0 && s.available !== false && s.is_available !== 0 && s.is_available !== false).length === 0 ? (
                         <option disabled>No available slots found in database</option>
                       ) : (
-                        slots.filter((s: any) => s.available == 1 || s.available == true).map((s: any) => (
+                        slots.filter((s: any) => s.available !== 0 && s.available !== false && s.is_available !== 0 && s.is_available !== false).map((s: any) => (
                           <option key={s.id} value={s.id}>
                             Zone {s.zone_name || '?'} - Slot {s.slot_number} ({s.hourly_rate || '0'} AED/hr)
                             {s.distance && ` - ${s.distance.toFixed(1)} km away`}

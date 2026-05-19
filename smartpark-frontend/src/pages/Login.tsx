@@ -40,7 +40,7 @@ const Login = () => {
       if (data.success) {
         console.log('Login successful, storing user data');
         // Use auth context to update auth state, safely falling back to 'id' if 'user_id' is undefined
-        const actualUserId = data.user.user_id || data.user.id || 'unknown';
+        const actualUserId = data.user.user_id || data.user.id || email;
         login(String(actualUserId), data.user.name, email);
 
         console.log('User data stored, navigating to dashboard');
