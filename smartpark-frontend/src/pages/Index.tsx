@@ -31,6 +31,20 @@ const Index = () => {
   useEffect(() => {
     if (!userId) return; // Wait until userId is loaded
 
+    const normalizeSlots = (slotsArray: any[]) => {
+      return slotsArray.map((s: any) => {
+        const zone = s.zone_name || (s.slot_number && s.slot_number.charAt(0).toUpperCase()) || 'A';
+        const rate = s.hourly_rate || (zone === 'A' ? 5.00 : zone === 'B' ? 3.50 : zone === 'C' ? 2.50 : zone === 'D' ? 2.00 : 5.00);
+        return {
+          ...s,
+          zone_name: zone,
+          hourly_rate: rate,
+          available: s.available !== undefined ? (s.available == 1 || s.available === true) : 
+                     s.is_available !== undefined ? (s.is_available == 1 || s.is_available === true) : true
+        };
+      });
+    };
+
     const fetchData = async () => {
       try {
         const userEmail = localStorage.getItem('userEmail') || userId;
@@ -42,7 +56,9 @@ const Index = () => {
               fetch(`https://smartpark-backend-rmc1.onrender.com/api/slots?lat=${latitude}&lng=${longitude}`)
                 .then(res => res.json())
                 .then(data => {
-                  if (data.success) setSlots(data.slots);
+                  if (data.success && data.slots) {
+                    setSlots(normalizeSlots(data.slots));
+                  }
                 });
             },
             () => {
@@ -50,13 +66,13 @@ const Index = () => {
                 .then(res => res.json())
                 .then(data => {
                   if (data.success && data.slots && data.slots.length > 0) {
-                    setSlots(data.slots);
+                    setSlots(normalizeSlots(data.slots));
                   } else {
                     setSlots([
-                      { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
-                      { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
-                      { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
-                      { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
+                      { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: true },
+                      { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: true },
+                      { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: true },
+                      { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: true }
                     ]);
                   }
                 });
@@ -67,37 +83,65 @@ const Index = () => {
             .then(res => res.json())
             .then(data => {
               if (data.success && data.slots && data.slots.length > 0) {
-                setSlots(data.slots);
+                setSlots(normalizeSlots(data.slots));
               } else {
                 setSlots([
-                  { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: 1 },
-                  { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: 1 },
-                  { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: 1 },
-                  { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: 1 }
+                  { id: 101, slot_number: 'A-01', location: 'SmartPark', zone_name: 'A', hourly_rate: 5.00, available: true },
+                  { id: 201, slot_number: 'B-01', location: 'SmartPark', zone_name: 'B', hourly_rate: 3.50, available: true },
+                  { id: 301, slot_number: 'C-01', location: 'SmartPark', zone_name: 'C', hourly_rate: 2.50, available: true },
+                  { id: 401, slot_number: 'D-01', location: 'SmartPark', zone_name: 'D', hourly_rate: 2.00, available: true }
                 ]);
               }
             });
         }
         
+        let currentVehicles: any[] = [];
         const vehRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/vehicles/${userId}`);
         const vehData = await vehRes.json();
         if (vehData.success && vehData.vehicles && vehData.vehicles.length > 0) {
+          currentVehicles = vehData.vehicles;
           setVehicles(vehData.vehicles);
         } else {
           const savedVehicles = localStorage.getItem(`demoVehicles_${userEmail}`);
-          if (savedVehicles) setVehicles(JSON.parse(savedVehicles));
-          else setVehicles([]);
+          if (savedVehicles) {
+            currentVehicles = JSON.parse(savedVehicles);
+            setVehicles(currentVehicles);
+          } else {
+            setVehicles([]);
+          }
         }
         
         const histRes = await fetch(`https://smartpark-backend-rmc1.onrender.com/api/history/${userId}`);
         const histData = await histRes.json();
-        // Strict filtering to only show current user's history if backend returns shared data accidentally
         if (histData.success && histData.history && histData.history.length > 0) {
-          setHistory(histData.history);
+          // Client-side safeguard: filter history to ensure no leaky bookings from other users
+          const userPlates = currentVehicles.map((v: any) => (v.plate || v.license_plate || '').toUpperCase());
+          const filteredHistory = histData.history.filter((h: any) => {
+            const plate = (h.license_plate || '').toUpperCase();
+            // Discard known mock plates
+            if (['A76724', 'B12345', 'C98765', 'A9867', 'A45244'].includes(plate)) {
+              return false;
+            }
+            // Only show history that matches the current user's registered vehicles
+            return userPlates.includes(plate);
+          });
+          setHistory(filteredHistory);
         } else {
           const savedDemo = localStorage.getItem(`demoHistory_${userEmail}`);
-          if (savedDemo) setHistory(JSON.parse(savedDemo));
-          else setHistory([]);
+          if (savedDemo) {
+            const parsedDemo = JSON.parse(savedDemo);
+            const userPlates = currentVehicles.map((v: any) => (v.plate || v.license_plate || '').toUpperCase());
+            const filteredDemo = parsedDemo.filter((h: any) => {
+              const plate = (h.license_plate || '').toUpperCase();
+              if (['A76724', 'B12345', 'C98765', 'A9867', 'A45244'].includes(plate)) {
+                return false;
+              }
+              return userPlates.includes(plate);
+            });
+            setHistory(filteredDemo);
+          } else {
+            setHistory([]);
+          }
         }
       } catch (err) {
         console.error("Backend not reachable. Check if server.js is running!");
