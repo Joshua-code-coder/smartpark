@@ -74,8 +74,6 @@ CREATE TABLE Payments (
 -- 3. SEED DATA (Base Parking Lots)
 -- ==========================================
 
-INSERT INTO Locations (name) VALUES ('SmartPark');
-
 INSERT INTO Zones (zone_name, hourly_rate) VALUES 
 ('A', 5.00),  -- Premium zone - highest price
 ('B', 3.50),  -- Mid-high zone
